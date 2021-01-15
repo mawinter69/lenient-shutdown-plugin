@@ -33,6 +33,8 @@ import static junit.framework.TestCase.assertTrue;
 import static org.junit.Assert.assertFalse;
 
 import java.util.concurrent.TimeUnit;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 import org.junit.Before;
 import org.junit.Rule;
@@ -64,6 +66,7 @@ public class SlaveLenientOfflineTest {
 
     private static final int JOB_SLEEP_TIME = 5000;
 
+    private static final Logger logger = Logger.getLogger(SlaveLenientOfflineTest.class.getName());
     /**
      * Jenkins rule instance.
      */
@@ -215,7 +218,9 @@ public class SlaveLenientOfflineTest {
         Jenkins.getInstance().rebuildDependencyGraph();
 
         parent.scheduleBuild2(0).waitForStart();
+        logger.log(Level.INFO, "Taking agent leniently offline");
         toggleLenientSlaveOffline(slave1);
+        logger.log(Level.INFO, "done");
 
         assertSuccessfulBuilds(parent, child, grandChild);
         assertSlaveGoesOffline(slave1);

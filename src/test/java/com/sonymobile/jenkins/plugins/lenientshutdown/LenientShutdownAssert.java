@@ -24,20 +24,22 @@
 
 package com.sonymobile.jenkins.plugins.lenientshutdown;
 
-import hudson.model.AbstractBuild;
-import hudson.model.AbstractProject;
-import hudson.model.Result;
-import hudson.slaves.DumbSlave;
+import static junit.framework.TestCase.assertTrue;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNotNull;
 
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
-import static junit.framework.TestCase.assertTrue;
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertNotNull;
+import hudson.model.AbstractBuild;
+import hudson.model.AbstractProject;
+import hudson.model.Result;
+import hudson.slaves.DumbSlave;
 
 /**
  * Assert methods used by the tests.
@@ -46,6 +48,7 @@ import static org.junit.Assert.assertNotNull;
  */
 public final class LenientShutdownAssert {
 
+  private static final Logger logger = Logger.getLogger(LenientShutdownAssert.class.getName());
     private static final int TIMEOUT_SECONDS = 60;
 
     /**
@@ -69,6 +72,7 @@ public final class LenientShutdownAssert {
             for (int i = 0; i < argumentProjects.length; i++) {
                 AbstractProject project = projects.get(i);
                 AbstractBuild build = project.getBuildByNumber(1);
+                logger.log(Level.INFO,"Build: {0}", build);
                 builds.set(i, build);
 
                 if (build == null || build.isBuilding()) {

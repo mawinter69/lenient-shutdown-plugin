@@ -35,6 +35,7 @@ import static org.junit.Assert.fail;
 import java.io.IOException;
 import java.util.concurrent.TimeUnit;
 
+import org.jenkinsci.plugins.workflow.job.WorkflowJob;
 import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
@@ -47,6 +48,7 @@ import com.gargoylesoftware.htmlunit.html.HtmlPage;
 import hudson.model.AbstractProject;
 import hudson.model.FreeStyleBuild;
 import hudson.model.FreeStyleProject;
+import hudson.model.Job;
 import hudson.model.Queue;
 import hudson.model.Result;
 import hudson.model.Queue.Item;
@@ -318,15 +320,18 @@ public class GlobalLenientShutdownTest {
      */
     private void waitForProjectInQueue(FreeStyleProject project) throws InterruptedException {
         int elapsedSeconds = 0;
-        while (elapsedSeconds <= TIMEOUT_SECONDS) {
-            AbstractProject firstQueued = (AbstractProject)Queue.getInstance().getItems()[0].task;
-            if (firstQueued.equals(project)) {
-                break;
+        while (elapsedSeconds <= TIMEOUT_SECONDS*10) {
+            Item[] items = Queue.getInstance().getItems();
+            if (items.length > 0) {
+              AbstractProject firstQueued = (AbstractProject)Queue.getInstance().getItems()[0].task;
+              if (firstQueued.equals(project)) {
+                  break;
+              }
             }
-            TimeUnit.SECONDS.sleep(1);
+            TimeUnit.MILLISECONDS.sleep(100);
             elapsedSeconds++;
         }
-        if (elapsedSeconds >= TIMEOUT_SECONDS) {
+        if (elapsedSeconds >= TIMEOUT_SECONDS*10) {
             fail("Child project was not queued up within time limit");
         }
     }
@@ -360,13 +365,18 @@ public class GlobalLenientShutdownTest {
      * @return the found item, null if the item didn't show up in the queue until timeout
      * @throws InterruptedException if interrupted
      */
-    private Item waitForBlockedItem(FreeStyleProject project, int timeout) throws InterruptedException {
+    private Item waitForBlockedItem(Job project, int timeout) throws InterruptedException {
         Queue jenkinsQueue = Jenkins.getInstance().getQueue();
-        Item queueItem = jenkinsQueue.getItem(project);
+        Item queueItem = null;
 
         int elapsedSeconds = 0;
         while (elapsedSeconds <= timeout) {
-            queueItem = jenkinsQueue.getItem(project);
+            if (project instanceof FreeStyleProject) {
+                queueItem = jenkinsQueue.getItem((FreeStyleProject)project);
+            }
+            if (project instanceof WorkflowJob) {
+                queueItem = jenkinsQueue.getItem((WorkflowJob)project);
+            }
             if (queueItem != null && queueItem.isBlocked()) {
                 return queueItem;
             }
@@ -619,4 +629,22 @@ public class GlobalLenientShutdownTest {
     private void toggleLenientShutdown() throws Exception {
         ShutdownManageLink.getInstance().performToggleGoingToShutdown();
     }
+    
+    /**
+     * Tests that pipleine job is blocked after shudown mode is initiated.
+     * @throws Exception if something goes wrong
+     */
+    @Test
+    public void testPipelineIsBlockedWhenShutdownEnabled() throws Exception {
+        WorkflowJob project = jenkinsRule.jenkins.createProject(WorkflowJob.class, "p");
+        toggleLenientShutdown();
+
+        project.scheduleBuild2(0);
+        Item queueItem = waitForBlockedItem(project, TIMEOUT_SECONDS);
+
+        assertThat(queueItem.isBlocked(), is(true));
+        assertThat(Messages.IsAboutToShutDown(), is(queueItem.getWhy()));
+    }
+
+    
 }
